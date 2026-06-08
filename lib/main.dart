@@ -1,121 +1,333 @@
 import 'package:flutter/material.dart';
+import 'package:hive_ce_flutter/hive_flutter.dart';
+import 'models/character.dart';
+import 'services/character_local_database.dart';
+import 'services/character_sync_service.dart';
+import 'services/character_api_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
+  await Hive.openBox("characters");
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: "KrakFlow - Harry Potter",
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        primarySwatch: Colors.blue,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.blueAccent,
+          foregroundColor: Colors.white,
+        ),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MainScreen(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+// ---------------- GŁÓWNY EKRAN Z DOLNYM PASKIEM NAWIGACJI ----------------
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _MainScreenState extends State<MainScreen> {
+  int _selectedIndex = 0;
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  // Lista trzech głównych ekranów
+  final List<Widget> _screens = [
+    const CharacterListScreen(),
+    const FavoritesScreen(),
+    const SettingsScreen(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _screens[_selectedIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.list), label: "Lista"),
+          BottomNavigationBarItem(icon: Icon(Icons.favorite), label: "Ulubione"),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: "Ustawienia"),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------- EKRAN 1: LISTA POSTACI ----------------
+
+class CharacterListScreen extends StatefulWidget {
+  const CharacterListScreen({super.key});
+
+  @override
+  State<CharacterListScreen> createState() => _CharacterListScreenState();
+}
+
+class _CharacterListScreenState extends State<CharacterListScreen> {
+  List<Character> allCharacters = [];
+  bool isLoading = true;
+  String? errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _wczytajPostaci();
+  }
+
+  Future<void> _wczytajPostaci() async {
+    try {
+      await CharacterSyncService.loadInitialDataIfNeeded();
+      final characters = CharacterLocalDatabase.getCharacters();
+
+      setState(() {
+        allCharacters = characters;
+        isLoading = false;
+        errorMessage = null;
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+        errorMessage = "Błąd połączenia. Upewnij się, że masz internet.";
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: const Text("Postacie z HP"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              setState(() {
+                isLoading = true;
+              });
+              _wczytajPostaci();
+            },
+          )
+        ],
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : errorMessage != null
+          ? Center(child: Text(errorMessage!, style: const TextStyle(color: Colors.red)))
+          : ListView.builder(
+        itemCount: allCharacters.length,
+        itemBuilder: (context, index) {
+          final character = allCharacters[index];
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: ListTile(
+              leading: CircleAvatar(
+                child: Text(character.name[0]),
+              ),
+              title: Text(character.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text("Dom: ${character.house.isNotEmpty ? character.house : 'Brak'}"),
+              trailing: IconButton(
+                icon: Icon(
+                  character.isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: character.isFavorite ? Colors.red : Colors.grey,
+                ),
+                onPressed: () async {
+                  // Przełączanie statusu Ulubione
+                  character.isFavorite = !character.isFavorite;
+                  await CharacterLocalDatabase.updateCharacter(character);
+                  setState(() {}); // Odśwież widok
+                },
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => CharacterDetailsScreen(characterId: character.id),
+                  ),
+                ).then((_) {
+                  // Odświeżanie listy po powrocie
+                  setState(() {
+                    allCharacters = CharacterLocalDatabase.getCharacters();
+                  });
+                });
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ---------------- EKRAN 2: ULUBIONE ---------------
+
+class FavoritesScreen extends StatelessWidget {
+  const FavoritesScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // Odczytanie bazy za każdym razem przy wejsciu na ekran
+    final allCharacters = CharacterLocalDatabase.getCharacters();
+    final favoriteCharacters = allCharacters.where((c) => c.isFavorite).toList();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Ulubione postacie"),
+      ),
+      body: favoriteCharacters.isEmpty
+          ? const Center(child: Text("Jeszcze nikogo nie polubiłeś!"))
+          : ListView.builder(
+        itemCount: favoriteCharacters.length,
+        itemBuilder: (context, index) {
+          final character = favoriteCharacters[index];
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: ListTile(
+              leading: CircleAvatar(child: Text(character.name[0])),
+              title: Text(character.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text("Dom: ${character.house}"),
+              trailing: const Icon(Icons.favorite, color: Colors.red),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ------------- EKRAN 3: USTAWIENIA ---------------
+
+class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Ustawienia"),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const ListTile(
+            leading: Icon(Icons.info_outline),
+            title: Text("O aplikacji"),
+            subtitle: Text("Projekt zaliczeniowy z użyciem Fluttera i HP-API."),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.delete_forever, color: Colors.red),
+            title: const Text("Wyczyść lokalną bazę danych", style: TextStyle(color: Colors.red)),
+            onTap: () async {
+              await Hive.box("characters").clear();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Baza została wyczyszczona.")),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// -------------- EKRAN 4: SZCZEGÓŁY POSTACI ----------------
+
+class CharacterDetailsScreen extends StatefulWidget {
+  final String characterId;
+
+  const CharacterDetailsScreen({super.key, required this.characterId});
+
+  @override
+  State<CharacterDetailsScreen> createState() => _CharacterDetailsScreenState();
+}
+
+class _CharacterDetailsScreenState extends State<CharacterDetailsScreen> {
+  Character? characterDetails;
+  bool isLoading = true;
+  String? errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _pobierzSzczegoly();
+  }
+
+  Future<void> _pobierzSzczegoly() async {
+    try {
+      final details = await CharacterApiService.fetchCharacterDetails(widget.characterId);
+      setState(() {
+        characterDetails = details;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+        errorMessage = "Nie udało się pobrać szczegółów postaci z serwera.";
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Szczegóły"),
+      ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : errorMessage != null
+          ? Center(child: Text(errorMessage!, style: const TextStyle(color: Colors.red)))
+          : Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Text('You have pushed the button this many times:'),
+            if (characterDetails!.image.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8.0),
+                child: Image.network(
+                  characterDetails!.image,
+                  height: 200,
+                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 100),
+                ),
+              )
+            else
+              const Icon(Icons.person, size: 100, color: Colors.grey),
+            const SizedBox(height: 24),
             Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+              characterDetails!.name,
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.home),
+                title: const Text("Dom Hogwartu"),
+                subtitle: Text(characterDetails!.house.isNotEmpty ? characterDetails!.house : "Brak przydziału"),
+              ),
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
       ),
     );
   }
