@@ -4,9 +4,12 @@ import 'models/character.dart';
 import 'services/character_local_database.dart';
 import 'services/character_sync_service.dart';
 import 'services/character_api_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   await Hive.initFlutter();
   await Hive.openBox("characters");
   runApp(const MyApp());

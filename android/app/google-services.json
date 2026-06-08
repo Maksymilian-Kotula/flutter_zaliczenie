@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "269094502992",
+    "project_id": "zaliczenie-d31d1",
+    "storage_bucket": "zaliczenie-d31d1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:269094502992:android:c7f6cbaded406e2a448755",
+        "android_client_info": {
+          "package_name": "com.example.zaliczenie1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBdY6q5YPiPo083uq0v-VyK0eq2fAhp2J8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
