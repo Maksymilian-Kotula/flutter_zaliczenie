@@ -3,12 +3,14 @@ class Character {
   final String name;
   final String house;
   final String image;
+  bool isFavorite;
 
   Character({
     required this.id,
     required this.name,
     required this.house,
     required this.image,
+    this.isFavorite = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -17,6 +19,7 @@ class Character {
       "name": name,
       "house": house,
       "image": image,
+      "isFavorite": isFavorite,
     };
   }
 
@@ -26,6 +29,7 @@ class Character {
       name: map["name"] ?? "Brak imienia",
       house: map["house"] ?? "Brak domu",
       image: map["image"] ?? "",
+      isFavorite: map["isFavorite"] ?? false,
     );
   }
 }

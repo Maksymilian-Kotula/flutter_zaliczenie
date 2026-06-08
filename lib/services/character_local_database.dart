@@ -14,12 +14,23 @@ class CharacterLocalDatabase {
     return characters;
   }
 
-  static Future<void> saveCharacters(List<Character> characters) async {
+  static Future<void> saveCharacters(List<Character> newCharacters) async {
+    final existing = getCharacters();
+    final favoriteIds = existing.where((c) => c.isFavorite).map((c) => c.id).toSet();
+
     await _box.clear();
-    for (final char in characters) {
+    for (final char in newCharacters) {
+      if (favoriteIds.contains(char.id)) {
+        char.isFavorite = true;
+      }
       await _box.put(char.id, char.toMap());
     }
-    log("Zapisano bazę listą ${characters.length} postaci", name: "CharacterLocalDatabase");
+    log("Zapisano bazę listą ${newCharacters.length} postaci", name: "CharacterLocalDatabase");
+  }
+
+  static Future<void> updateCharacter(Character character) async {
+    await _box.put(character.id, character.toMap());
+    log("Zaktualizowano postać ${character.name} (Ulubione: ${character.isFavorite})", name: "CharacterLocalDatabase");
   }
 
   static bool isEmpty() {
