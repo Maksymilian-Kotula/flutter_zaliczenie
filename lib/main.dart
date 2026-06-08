@@ -9,7 +9,10 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+
   await Firebase.initializeApp();
+
   await Hive.initFlutter();
   await Hive.openBox("characters");
   runApp(const MyApp());
@@ -104,6 +107,10 @@ class _CharacterListScreenState extends State<CharacterListScreen> {
         isLoading = false;
         errorMessage = null;
       });
+
+      // ---> EVENT 1: Analityka - załadowanie listy <---
+      await FirebaseAnalytics.instance.logEvent(name: "lista_zaladowana");
+
     } catch (e) {
       setState(() {
         isLoading = false;
@@ -155,9 +162,24 @@ class _CharacterListScreenState extends State<CharacterListScreen> {
                   character.isFavorite = !character.isFavorite;
                   await CharacterLocalDatabase.updateCharacter(character);
                   setState(() {}); // Odśwież widok
+
+                  // ---> EVENT 2: Analityka - kliknięcie w serduszko <---
+                  await FirebaseAnalytics.instance.logEvent(
+                    name: "ulubione_klikniete",
+                    parameters: {
+                      "character_name": character.name,
+                      "is_favorite": character.isFavorite.toString(),
+                    },
+                  );
                 },
               ),
-              onTap: () {
+              onTap: () async {
+                // ---> EVENT 3: Analityka - wejście w szczegóły postaci <---
+                await FirebaseAnalytics.instance.logEvent(
+                  name: "szczegoly_postaci_otwarte",
+                  parameters: {"character_name": character.name},
+                );
+
                 Navigator.push(
                   context,
                   MaterialPageRoute(
